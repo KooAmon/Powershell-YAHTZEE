@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Yahzee Game completely in PowerShell
 .DESCRIPTION
@@ -15,357 +15,462 @@
   Just run YahtzeeGame.ps1 and have fun :)
 #>
 
-$title = '
-\ /                  
- Y  _ |_ _|_ _  _  _ 
- | (_|| | |_ /_(/_(/_'
+#   Ascii dice function
+function Show-AsciiDice {
+    Param
+    (
+        [parameter(Mandatory, ParameterSetName = 'Random')][int] $Random,
+        [parameter(Mandatory, ParameterSetName = 'Numbers')][ValidateRange(1, 6)][int[]] $NumberSet,
+        [parameter()][ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Blue', 'Green', 'Cyan', 'Red', 'Magenta', 'Yellow', 'White')][String] $DieColor = 'White'
+    )
 
-#Keep track of scores boolean. Will write a score file to appata if $true. 
-$ScoreBool = $true
+    if ($PsCmdlet.ParameterSetName -eq 'Random') {
+        $NumberSet = (1..$random | ForEach-Object { Get-Random -Minimum 1 -Maximum 7 })
+    }
 
-#Create file to store scores
-if ($ScoreBool -eq $true) {
-  $ScoresPath = "$env:APPDATA\PowershellYahtzeeHighScore.txt"
-  if (!$(Test-Path $ScoresPath)) { 
-    Set-Content -Path $ScoresPath -Value '' -Force
-  }
+    $OutputTop = foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Top)$($Global:DiceSpacer)"}
+    $OutputTopMiddle = foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Top)$($Global:DiceSpacer)"}
+    $OutputMiddle =  foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Middle)$($Global:DiceSpacer)"}
+    $OutputBottomMiddle =  foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Bottom)$($Global:DiceSpacer)"}
+    $OutputBottom =  foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Bottom)$($Global:DiceSpacer)"}
+
+    Write-Host -ForegroundColor $DieColor $OutputTop
+    Write-Host -ForegroundColor $DieColor $OutputTopMiddle
+    Write-Host -ForegroundColor $DieColor $OutputMiddle
+    Write-Host -ForegroundColor $DieColor $OutputBottomMiddle
+    Write-Host -ForegroundColor $DieColor $OutputBottom
 }
 
-#Ascii dice function
-function Get-AsciiDice {
-  Param
-(
-    [parameter(Mandatory=$true,
-    ParameterSetName="Random")]
-    [int]$Random,
-    [parameter(Mandatory=$true,
-    ParameterSetName="Numbers")]
-    $Numbers,
-    [parameter(Mandatory=$False)]
-    [ValidateSet("Black","DarkBlue","DarkGreen","DarkCyan","DarkRed","DarkMagenta","DarkYellow","Gray","DarkGray","Blue","Green","Cyan","Red","Magenta","Yellow","White")]
-    [String]$DieColor = "White"
-  )
-
-  if ($random) {
-      $NumberSet = (1..$random | ForEach-Object {Get-Random -Minimum 1 -Maximum 7})
-      $NumberSet = ($NumberSet -join '').ToString().ToCharArray()
-  }
-  if ($Numbers) {
-      $NumberSet = $Numbers.ToString().ToCharArray()
-  }
-
- $NumberSet | ForEach-Object { if ($_ -gt '6'){Write-Error -Message "Only supports digits 1-6" -ErrorAction Stop} }
- if ($($NumberSet.Count) -gt 10){Write-Error -Message "Only supports up to 10 die" -ErrorAction Stop}
-
-  $d = [PSCustomObject]@{
-      t1 = '     '
-      m1 = '  o  '
-      b1 = '     '
-      t2 = '   o '
-      m2 = '     '
-      b2 = ' o   '
-      t3 = ' o   '
-      m3 = '  o  '
-      b3 = '   o '
-      t4 = 'o   o'
-      m4 = '     '
-      b4 = 'o   o'
-      t5 = 'o   o'
-      m5 = '  o  '
-      b5 = 'o   o'
-      t6 = 'o   o'
-      m6 = 'o   o'
-      b6 = 'o   o'
-      }
-  
-$DiePicture = foreach ($n in $Numberset){   
-  $t = 't' + $n
-  $m = 'm' + $n
-  $b = 'b' + $n  
-  Write-Output " _____ "
-  Write-Output "|$($d.$t)|"
-  Write-Output "|$($d.$m)|"
-  Write-Output "|$($d.$b)|"
-  Write-Output " ----- "
-  }
-
-Write-Host -ForegroundColor $DieColor ($DiePicture[0,5,10,15,20,25,30,35,40,45] -join '  ')
-Write-Host -ForegroundColor $DieColor ($DiePicture[1,6,11,16,21,26,31,36,41,46] -join '  ')
-Write-Host -ForegroundColor $DieColor ($DiePicture[2,7,12,17,22,27,32,37,42,47] -join '  ')
-Write-Host -ForegroundColor $DieColor ($DiePicture[3,8,13,18,23,28,33,38,43,48] -join '  ')
-Write-Host -ForegroundColor $DieColor ($DiePicture[4,9,14,19,24,29,34,39,44,49] -join '  ')
-}
-
-#Menu Function
+#   Menu Function
 Function Read-Choice {
-  [cmdletbinding()]
-  param(
-    [parameter(
-      Mandatory = $true,
-      ValueFromPipeline = $true)]
-    $Options,
-    [string]$Property,
-    [string]$Prompt = "Select you score"
-  )
-  Begin {
-    $ObjectArray = @()
-    $ChoiceArray = @()
-  }
-  Process {
-    #Gather up options
-    if ($Property -and $Property -notin ($Options[0] | Get-Member | Select-Object -ExpandProperty name)) {
-      Throw "Property `"$Property`" is not an attribute of choice $($Options[0])"
+    param(
+        [parameter(Mandatory)] $Options,
+        [parameter()][string] $Property,
+        [parameter()][string] $Prompt = 'Select you score'
+    )
+    Begin {
+        $ObjectArray = @()
+        $ChoiceArray = @()
     }
-    $Options | ForEach-Object {
-      $ObjectArray += $_
-      if ($Property) {
-        $ChoiceArray += $_.$Property
-      }
-      else {
-        $ChoiceArray += $_
-      }
+    Process {
+        #Gather up options
+        if ($Property -and $Property -notin ($Options[0] | Get-Member | Select-Object -ExpandProperty name)) {
+            Throw "Property `"$Property`" is not an attribute of choice $($Options[0])"
+        }
+        $Options | ForEach-Object {
+            $ObjectArray += $_
+            if ($Property) {
+                $ChoiceArray += $_.$Property
+            }
+            else {
+                $ChoiceArray += $_
+            }
+        }
     }
-  }
-  End {
-    for ($i = 0; $i -lt $ChoiceArray.Count; $i++) {
-      #Show options
-      #Write-Host "  " -NoNewline
-      #Write-Host ($i + 1) -NoNewline -ForegroundColor Green -BackgroundColor Black
-      #Write-Host ". $($ChoiceArray[$i])" 
-    }
-    Do {
-      $Answer = Read-Host -Prompt $Prompt
-      if ($Answer -in 1..($ChoiceArray.count)) {
-        $Chosen = $ObjectArray[$Answer - 1]
-      }
-      if (!$Chosen) { 
-        Write-Host "Invalid choice '$Answer'.  Please try again or press Ctrl+C to quit." -ForegroundColor Yellow
-      }
-      else {
-        $Chosen
-      }
-    } While (!$Chosen)
-  } 
+    End {
+        #for ($i = 0; $i -lt $ChoiceArray.Count; $i++) {
+            #Show options
+            #Write-Host "  " -NoNewline
+            #Write-Host ($i + 1) -NoNewline -ForegroundColor Green -BackgroundColor Black
+            #Write-Host ". $($ChoiceArray[$i])" 
+        #}
+        Do {
+            $Answer = Read-Host -Prompt $Prompt
+            if ($Answer -in 1..($ChoiceArray.count)) {
+                $Chosen = $ObjectArray[$Answer - 1]
+            }
+            if (!$Chosen) { 
+                Write-Host "Invalid choice '$Answer'.  Please try again or press Ctrl+C to quit." -ForegroundColor Yellow
+            }
+            else {
+                $Chosen
+            }
+        } While (!$Chosen)
+    } 
 }
 
-#Dice Roll Function
+#   Display ScoreCard
+Function Show-ScoreCard{
+    Clear-Host
+
+    #Write scoreboard to console
+    Write-Host -ForegroundColor Blue "$Global:Title"
+    Write-Host '~~~~Score Card~~~~'
+    Show-ScoreCardSection -Type 'Upper'
+    Write-Host $Global:SpacerScoreCard
+    Show-ScoreCardSection -Type 'Lower'
+    Write-Host $Global:SpacerScoreCard
+}
+
+Function Show-ScoreCardSection{
+    param (
+        [Parameter(Mandatory)][ValidateSet('Upper', 'Lower')][string] $Type
+    )
+    Foreach($Score in ($Global:ScoreboardObject.psobject.Properties | Where-Object {($_.MemberType -eq 'NoteProperty') -and ($_.Value.Type -eq $Type)})){
+
+        $ScoreForegroundColor = if($Score.Value.Used -and $Score.Value.Value -eq 0){
+                                    'Red'
+                                }elseif($Score.Value.Value -eq 0){
+                                    'White'
+                                }else{
+                                    'Green'
+        }
+
+        Write-Host -ForegroundColor $ScoreForegroundColor "$($Score.Name)`t: $($Score.Value.Value)"
+    }
+}
+
+#   Dice Roll Function
 function Invoke-DiceRoll {
-  Param([int]$numberofdice)
-  $dicearray = 1..$($numberofdice) 
-  foreach ($number in $dicearray) { 1..6 | Get-Random }
+    Param([int]$numberofdice)
+    $Global:Dicearray = 1..$($numberofdice) 
+    foreach ($number in $Global:Dicearray) { 1..6 | Get-Random }
 }
 
-#Array of Score Names
-$ScoreNameArray = @(
-  'Ones'
-  'Twos'
-  'Threes'
-  'Fours'
-  'Fives'
-  'Sixes'
-  'ThreeofaKind'
-  'FourofaKind'
-  'FullHouse'
-  'SmStraight'
-  'LgStraight'
-  'Yahtzee'
-  'Chance'
-)
-
-#Set TurnNumber Variable to be incremented
-$TurnNumber = 1
-
-#Create Scoreboard Object and populate with scorename properties
-$ScoreboardObject = New-Object -TypeName psobject
-foreach ($ScoreName in $ScoreNameArray) { $ScoreboardObject | Add-Member -MemberType NoteProperty -name $ScoreName -Value '' }
-
-#Kicks off 1 round of Yahtzee
+#   Kicks off 1 round of Yahtzee
 function Invoke-YahtzeeTurn {
 
-  #Set up incrementing variables
-  $NumberOfRolls = 1
-  $i = 0
-  $RollResult = 1..5
+    #Set up incrementing variables
+    $NumberOfRolls = 1
+    $i = 0
+    $RollResult = 1..5
 
-  #Build Die Objects
-  foreach ($Die in $RollResult) {
-    $i++
-    $Die | Add-Member -MemberType NoteProperty -name "DicePosition" -Value ($i) -Force
-    #$Die | Add-Member -MemberType NoteProperty -name "DicePosition" -Value ([char](64 + $i)) -Force  #Select die with letter instead of number
-    $Die | Add-Member -MemberType NoteProperty -name "Held" -Value " " -Force
-    $Die | Add-Member -MemberType NoteProperty -name "Value" -Value (Invoke-DiceRoll -numberofdice 1) -Force
-  }
-
-  #Roll only 2 more times after initial
-  $RollResult = While ($NumberOfRolls -le 2) {
-    
-    #Display Scoreboard
-    Clear-Host
-    Write-Host -ForegroundColor Blue "$title"
-    Write-Host "~~~~Score Card~~~~"
-    Write-Host "$($($ScoreboardObject | Select-Object Ones, Twos, Threes, Fours, Fives, Sixes | Format-List | Out-String ).trim())" 
-    Write-Host "~~~~~~~~~~~~~~~~~~"
-    Write-Host "$($($ScoreboardObject | Select-Object ThreeofaKind, FourofaKind, FullHouse, SmStraight, LgStraight, Yahtzee, Chance | Format-List | Out-String ).trim())"
-
-    #Clear held property
-    foreach ($Die in $RollResult) { $Die.Held = ' '}
-    
-    #Draw die and selection
-    Get-AsciiDice -Numbers ($RollResult.Value -join '') -DieColor Yellow
-    Write-Host "   1        2        3        4        5"
- 
-    #Prompt for die selection
-    $HoldAnswer = Read-Host "Enter die to hold or leave blank (ex. 123)"   
-    $HoldAnswer = $HoldAnswer.ToCharArray()
-
-    #Modify die object with held property
+    #Build Die Objects
     foreach ($Die in $RollResult) {
-      foreach ($Answer in $HoldAnswer) {
-        if ($($Die.DicePosition) -match $Answer) {
-          $Die.Held = "Hold"
-        }  
-      }
+        $i++
+        $Die | Add-Member -MemberType NoteProperty -Name 'DicePosition' -Value ($i) -Force
+        #$Die | Add-Member -MemberType NoteProperty -name "DicePosition" -Value ([char](64 + $i)) -Force  #Select die with letter instead of number
+        $Die | Add-Member -MemberType NoteProperty -Name 'Held' -Value ' ' -Force
+        $Die | Add-Member -MemberType NoteProperty -Name 'Value' -Value (Invoke-DiceRoll -numberofdice 1) -Force
+    }
+
+    Show-ScoreCard
+    #Roll only 2 more times after initial
+    $RollResult = While ($NumberOfRolls -le 2) {
+    
+        #Clear held property
+        foreach ($Die in $RollResult) {
+            $Die.Held = ' '
+        }
+
+        #Draw die and selection
+        Show-AsciiDice -Numbers ($RollResult.Value) -DieColor Yellow
+        Write-Host '   1        2        3        4        5'
+ 
+        #Prompt for die selection
+        $HoldAnswer = Read-Host 'Enter die to hold or leave blank (ex. 123)'   
+        $HoldAnswer = $HoldAnswer.ToCharArray()
+
+        #Modify die object with held property
+        foreach ($Die in $RollResult) {
+            foreach ($Answer in $HoldAnswer) {
+                if ($($Die.DicePosition) -match $Answer) {
+                    $Die.Held = 'Hold'
+                }  
+            }
       
-      #Reroll non-held die
-      if ($($Die.Held) -notlike "Hold") {
-        $Die.Value = Invoke-DiceRoll -numberofdice 1
-        $Die.Held = " "
-        $Die.Value
-      }
+            #Reroll non-held die
+            if ($($Die.Held) -notlike 'Hold') {
+                $Die.Value = Invoke-DiceRoll -numberofdice 1
+                $Die.Held = ' '
+                $Die.Value
+            }
+        }
+    
+        #Indicate held die and pause
+        $HeldDieInt = $RollResult | Where-Object Held -Like 'Hold' | Select-Object value
+        $HeldDieInt = $HeldDieInt.value
+   
+        #Check if all 5 die held and end turn
+        if ($($HoldAnswer.count) -eq 5) {
+            $NumberOfRolls = 2
+        }
+    
+        #Increment number of rolls and output final roll result after 3 rolls
+        $NumberOfRolls++
+        if ($NumberOfRolls -ge 3) {
+            $RollResult
+        }
+    }
+
+    #Convert roll result to array of values
+    $RollResult = $RollResult.value
+
+    #Create Scoring Table Object, a temporary scoreboard for choosing which score to take
+    $SelectScoringTableObject = New-Object -TypeName PSObject
+  
+    #Make all score values 0
+    foreach ($ScoreName in $Global:ScoreNameArray) {
+        $SelectScoringTableObject | Add-Member -MemberType NoteProperty -Name $ScoreName -Value 0
+    }
+
+    #Top section score calculating
+    $SelectScoringTableObject.Ones      = ($RollResult -match '1' | Measure-Object -Sum).sum
+    $SelectScoringTableObject.Twos      = ($RollResult -match '2' | Measure-Object -Sum).sum
+    $SelectScoringTableObject.Threes    = ($RollResult -match '3' | Measure-Object -Sum).sum
+    $SelectScoringTableObject.Fours     = ($RollResult -match '4' | Measure-Object -Sum).sum
+    $SelectScoringTableObject.Fives     = ($RollResult -match '5' | Measure-Object -Sum).sum
+    $SelectScoringTableObject.Sixes     = ($RollResult -match '6' | Measure-Object -Sum).sum
+
+    #Bottom section score calculating
+    $SelectScoringTableObject.ThreeofaKind  = if ((($RollResult | Group-Object) | Select-Object -expand count) -ge 3) {
+                                                  $RollResult | Measure-Object -Sum | Select-Object -ExpandProperty sum
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject.FourofaKind   = if (((($RollResult | Group-Object) | Select-Object -expand count) -ge 4)) {
+                                                  $RollResult | Measure-Object -Sum | Select-Object -ExpandProperty sum
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject.FullHouse     = if (((($RollResult | Group-Object) | Select-Object count) -match '3') -and ((($RollResult | Group-Object) | Select-Object count) -match '2')) {
+                                                  25
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject.SmStraight    = if ((( -join ($RollResult | Sort-Object -u) -match '1234|2345|3456|12345|23456')) -eq $true ) {
+                                                  30
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject.LgStraight    = if ((( -join ($RollResult | Sort-Object -u) -match '12345|23456')) -eq $true ) {
+                                                  40
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject._Yahtzee_   = if ((($RollResult | Group-Object) | Select-Object count) -match '5') {
+                                                  50
+                                              }else{
+                                                  0
+                                              }
+    $SelectScoringTableObject._Chance_    = $RollResult | Measure-Object -Sum | Select-Object -ExpandProperty sum
+
+    #Build Score Selection Menu
+    $ScoreMenuTemp = $SelectScoringTableObject.psobject.Properties | Select-Object Name, Value
+
+    $ScoreMenu = foreach ($item in $ScoreMenuTemp) {
+        if (!$Global:ScoreboardObject.$($item.name).Used) {
+            $item
+        }
+    }
+
+    #Present Score Selection Menu
+    Show-AsciiDice -Numbers ($RollResult) -DieColor Yellow
+    Write-Host -ForegroundColor Cyan 'Choose a score:'
+    $Index = 0
+    foreach ($item in $ScoreMenu) {
+        $Index++
+        Write-Host "$Index.) $($item.name)`t$($item.value)"
+    }
+
+    #Read menu selection, output selected score object.
+    $ScoreChoice = Read-Choice -Options $ScoreMenu.name 
+    $SelectedScore = ($ScoreMenu | Where-Object name -Like $ScoreChoice)
+    return $SelectedScore
+}
+
+#   End Screen
+Function Show-EndScreen{
+    Show-ScoreCard
+
+    #Sum up scores
+    foreach($Score in ($Global:ScoreboardObject.psobject.Properties | Where-Object {($_.MemberType -eq 'NoteProperty')})){
+        switch($Score.Value.Type){
+            Upper {$TopTotalSum += $Score.Value.Value}
+            Lower {$BottomTotalSum += $Score.Value.Value}
+        }
+    }
+
+    #Check for bonus score
+    $TopBonus = if ($TopTotalSum -ge 63) { 35 }else{ 0 }
+
+    #Sum up final score
+    $FinalTotal = $TopTotalSum + $TopBonus + $BottomTotalSum
+
+    #Write Final Results to Console
+    Write-Host "Top Total    : $TopTotalSum"
+    Write-Host "Top Bonus    : $TopBonus"
+    Write-Host "Bottom Total : $BottomTotalSum"
+    Write-Host $Global:SpacerScoreCard
+    Write-Host "Total Score  : $FinalTotal"
+
+    #Check for highscorebool. If so, write to console.
+    if ($Global:ScoreBool -eq $true) {
+        Add-Content -Path $Global:ScoresPath "$FinalTotal"
+        $ScoreContent = Get-Content $Global:ScoresPath
+        $GamesPlayed = $ScoreContent.count
+        $AverageScore = ($ScoreContent | Measure-Object -Average).Average
+        $HighScore = ($ScoreContent | Measure-Object -Maximum).Maximum
+        $LowestScore = ($ScoreContent | Measure-Object -Minimum).Minimum
+        Write-Host $Global:SpacerScoreCard
+        Write-Host "Highest Score: $HighScore"
+        Write-Host "Average Score: $AverageScore"
+        Write-Host " Lowest Score: $LowestScore"
+        Write-Host " Games Played: $GamesPlayed "
+
+        if ($FinalTotal -gt $HighScore) {
+            Write-Host $Global:SpacerScoreCard
+            Write-Host "$FinalTotal is a new high score! Great job!"
+        } 
+    }
+    Write-Host ' '
+    Pause
+}
+
+#   Setup Global Vars
+Function New-Globals{
+    $Global:Title = '
+    \ /                  
+     Y  _ |_ _|_ _  _  _ 
+     | (_|| | |_ /_(/_(/_'
+    
+    #Keep track of scores boolean. Will write a score file to appata if $true. 
+    $Global:ScoreBool = $true
+    
+    #   Setup Dice Object
+    $Global:DiceSlices = [PSCustomObject]@{
+        Top        = ' _____ '
+        None       = '|     |'
+        LeftPip    = '| o   |'
+        MiddlePip  = '|  o  |'
+        RightPip   = '|   o |'
+        TwoPips    = '|o   o|'
+        Bottom     = ' ----- '
     }
     
-    #Indicate held die and pause
-    $HeldDieInt = $RollResult | Where-Object Held -Like "Hold" | Select-Object value
-    $HeldDieInt = $HeldDieInt.value -join ''
-    Write-Host "Holding:"
-    if ($HeldDieInt) { Get-AsciiDice -Numbers $HeldDieInt -DieColor Yellow }
-    Start-Sleep -Seconds 1
+    $Global:Dice = [PSCustomObject]@{
+        1 = @{
+            Top     = $Global:DiceSlices.None
+            Middle  = $Global:DiceSlices.MiddlePip
+            Bottom  = $Global:DiceSlices.None
+        }
+        2 = @{
+            Top     = $Global:DiceSlices.RightPip
+            Middle  = $Global:DiceSlices.None
+            Bottom  = $Global:DiceSlices.LeftPip
+        }
+        3 = @{
+            Top     = $Global:DiceSlices.LeftPip
+            Middle  = $Global:DiceSlices.MiddlePip
+            Bottom  = $Global:DiceSlices.RightPip
+        }
+        4 = @{
+            Top     = $Global:DiceSlices.TwoPips
+            Middle  = $Global:DiceSlices.None
+            Bottom  = $Global:DiceSlices.TwoPips
+        }
+        5 = @{
+            Top     = $Global:DiceSlices.TwoPips
+            Middle  = $Global:DiceSlices.MiddlePip
+            Bottom  = $Global:DiceSlices.TwoPips
+        }
+        6 = @{
+            Top     = $Global:DiceSlices.TwoPips
+            Middle  = $Global:DiceSlices.TwoPips
+            Bottom  = $Global:DiceSlices.TwoPips
+        }
+    }
     
-    #Check if all 5 die held and end turn
-    if ($($HoldAnswer.count) -eq 5) { $NumberOfRolls = 2 }
+    #   Space between Dice
+    $Global:DiceSpacer = '  '
     
-    #Increment number of rolls and output final roll result after 3 rolls
-    $NumberOfRolls++
-    if ($NumberOfRolls -ge 3) { $RollResult }
-  }
+    #   Space for ScoreCard
+    $Global:SpacerScoreCard = '~~~~~~~~~~~~~~~~~~'
 
-  #Display scoreboard
-  Clear-Host
-  Write-Host -ForegroundColor Blue "$title"
-  Write-Host "~~~~Score Card~~~~"
-  Write-Host "$($($ScoreboardObject | Select-Object Ones, Twos, Threes, Fours, Fives, Sixes | Format-List | Out-String ).trim())" 
-  Write-Host "~~~~~~~~~~~~~~~~~~"
-  Write-Host "$($($ScoreboardObject | Select-Object ThreeofaKind, FourofaKind, FullHouse, SmStraight, LgStraight, Yahtzee, Chance | Format-List | Out-String ).trim())"
+    #   Create Array of Score Names
+    $Global:ScoreNameArray = @('Ones', 'Twos', 'Threes', 'Fours', 'Fives', 'Sixes', 'ThreeofaKind', 'FourofaKind', 'FullHouse', 'SmStraight', 'LgStraight', '_Yahtzee_', '_Chance_')
 
-  #Convert roll result to array of values
-  $RollResult = $RollResult.value
+    #Create Scoreboard Object
+    $Global:ScoreboardObject = [PSCustomObject]@{
+        Ones = [PSCustomObject]@{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        Twos = [PSCustomObject]@{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        Threes = [PSCustomObject]@{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        Fours =[PSCustomObject] @{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        Fives = [PSCustomObject]@{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        Sixes = [PSCustomObject]@{
+            Value = 0
+            Type = 'Upper'
+            Used = $false
+        }
+        ThreeofaKind = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        FourofaKind = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        FullHouse = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        SmStraight = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        LgStraight = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        _Yahtzee_ = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+        _Chance_ = [PSCustomObject]@{
+            Value = 0
+            Type = 'Lower'
+            Used = $false
+        }
+    }
 
-  #Create Scoring Table Object, a temporary scoreboard for choosing which score to take
-  $SelectScoringTableObject = New-Object -TypeName PSObject
-  
-  #Make all score values 0
-  foreach ($ScoreName in $ScoreNameArray) { $SelectScoringTableObject | Add-Member -MemberType NoteProperty -name $ScoreName -Value '0' }
+    #Set TurnNumber Variable to be incremented
+    $Global:TurnNumber = 1
 
-  #Top section score calculating
-  $SelectScoringTableObject.Ones = ($RollResult -match '1' | Measure-Object -sum).sum
-  $SelectScoringTableObject.Twos = ($RollResult -match '2' | Measure-Object -sum).sum
-  $SelectScoringTableObject.Threes = ($RollResult -match '3' | Measure-Object -sum).sum
-  $SelectScoringTableObject.Fours = ($RollResult -match '4' | Measure-Object -sum).sum
-  $SelectScoringTableObject.Fives = ($RollResult -match '5' | Measure-Object -sum).sum
-  $SelectScoringTableObject.Sixes = ($RollResult -match '6' | Measure-Object -sum).sum
-
-  #Bottom section score calculating
-  $SelectScoringTableObject.ThreeofaKind = if ((($RollResult | Group-Object) | Select-Object -expand count) -ge 3) { $RollResult | Measure-Object -sum | Select-Object -ExpandProperty sum }
-  else { '0' }
-  $SelectScoringTableObject.FourofaKind = if (((($RollResult | Group-Object) | Select-Object -expand count) -ge 4)) { $RollResult | Measure-Object -sum | Select-Object -ExpandProperty sum }
-  else { '0' }
-  $SelectScoringTableObject.FullHouse = if (((($RollResult | Group-Object) | Select-Object count) -match '3') -and ((($RollResult | Group-Object) | Select-Object count) -match '2')) { '25' }
-  else { '0' }
-  $SelectScoringTableObject.SmStraight = if ((( -join ($RollResult | Sort-Object -u) -match "1234|2345|3456|12345|23456")) -eq $true ) { '30' }
-  else { '0' }
-  $SelectScoringTableObject.LgStraight = if ((( -join ($RollResult | Sort-Object -u) -match "12345|23456")) -eq $true ) { '40' }
-  else { '0' }
-  $SelectScoringTableObject.Yahtzee = if ((($RollResult | Group-Object) | Select-Object count) -match '5') { '50' }
-  else { '0' }
-  $SelectScoringTableObject.Chance = $RollResult | Measure-Object -sum | Select-Object -ExpandProperty sum
-
-  #Build Score Selection Menu
-  $ScoreMenu = $SelectScoringTableObject.psobject.Properties | Select-Object Name, Value 
-  $ScoreMenu = foreach ($item in $ScoreMenu) {
-    if ($($ScoreboardObject.$($item.name)) -like '') { $item }             
-  }
-
-  #Present Score Selection Menu
-  $c = 0
-  Get-AsciiDice -Numbers ($RollResult -join '') -DieColor Yellow
-  Write-Host -ForegroundColor Cyan "Choose a score:"
-  foreach ($item in $ScoreMenu) {
-    $c++
-    Write-Host "$c.) $($item.value) $($item.name) "
-  }
-    
-  #Read menu selection, output selected score object.
-  $ScoreChoice = Read-Choice -Options $ScoreMenu.name 
-  $SelectedScore = $ScoreMenu | Where-Object name -Like $ScoreChoice
-  $SelectedScore
+    $Global:ScoresPath = "$env:APPDATA\PowershellYahtzeeHighScore.txt"
 }
+
+#   Create file to store scores
+Function New-ScoreFile{
+    if (($Global:ScoreBool -eq $true) -and (!$(Test-Path $Global:ScoresPath))) {
+        Set-Content -Path $Global:ScoresPath -Value '' -Force
+    }
+}
+
+New-Globals
+New-ScoreFile
 
 #Invoke Yahtzee round for each scorable item. Increment turn number
-foreach ($item in $ScoreNameArray) {
-  $TurnResult = Invoke-YahtzeeTurn 
-  $ScoreboardObject.$($TurnResult.Name) = $TurnResult.Value
-  $TurnNumber++
+While($Global:TurnNumber -lt 14) {
+    $TurnResult = Invoke-YahtzeeTurn
+    $Global:ScoreboardObject.$($TurnResult.Name).Value = $TurnResult.Value
+    $Global:ScoreboardObject.$($TurnResult.Name).Used = $true
+    $Global:TurnNumber++
 }
 
-#Fresh clean console
-Clear-Host
-
-#Write scoreboard to console
-Write-Host -ForegroundColor Blue "$title"
-Write-Host "~~~~Score Card~~~~"
-Write-Host "$($($ScoreboardObject | Select-Object Ones, Twos, Threes, Fours, Fives, Sixes | Format-List | Out-String ).trim())" 
-Write-Host "~~~~~~~~~~~~~~~~~~"
-Write-Host "$($($ScoreboardObject | Select-Object ThreeofaKind, FourofaKind, FullHouse, SmStraight, LgStraight, Yahtzee, Chance | Format-List | Out-String ).trim())"
-Write-Host "~~~~~~~~~~~~~~~~~~"
-
-#Sum up top scores
-$TopTotalSum = $ScoreboardObject.Ones + $ScoreboardObject.Twos + $ScoreboardObject.Threes + $ScoreboardObject.Fours + $ScoreboardObject.Fives + $ScoreboardObject.Sixes
-
-#Check for bonus score
-if ($TopTotalSum -ge 63) { $TopBonus = 35 }
-if ($TopTotalSum -lt 63) { $TopBonus = 0 }
-
-#Sum up bottom scores
-$BottomTotalSum = $ScoreboardObject.ThreeofaKind + $ScoreboardObject.FourofaKind + $ScoreboardObject.FullHouse + $ScoreboardObject.SmStraight + $ScoreboardObject.LgStraight + $ScoreboardObject.Yahtzee + $ScoreboardObject.Chance
-
-#Sum up final score
-$FinalTotal = $TopTotalSum + $TopBonus + $BottomTotalSum
-
-#Write Final Results to Console
-Write-Host "Top Total    : $TopTotalSum"
-Write-Host "Top Bonus    : $TopBonus"
-Write-Host "Bottom Total : $BottomTotalSum"
-Write-Host "~~~~~~~~~~~~~~~~~~"
-Write-Host "Total Score  : $FinalTotal"
-
-#Check for highscorebool. If so, write to console.
-if ($ScoreBool -eq $true) {
-  Add-Content -Path $ScoresPath "$FinalTotal"
-  $ScoreContent = Get-Content $ScoresPath
-  $GamesPlayed = $ScoreContent.count
-  $AverageScore = ($ScoreContent | Measure-Object -Average).Average
-  $HighScore = ($ScoreContent | Measure-Object -Maximum).Maximum
-  $LowestScore = ($ScoreContent | Measure-Object -Minimum).Minimum
-  Write-Host "~~~~~~~~~~~~~~~~~~"
-  Write-Host "Highest Score: $HighScore"
-  Write-Host "Average Score: $AverageScore"
-  Write-Host " Lowest Score: $LowestScore"
-  Write-Host " Games Played: $GamesPlayed "
-
-  if ($FinalTotal -gt $HighScore) {
-    Write-Host "~~~~~~~~~~~~~~~~~~"
-    Write-Host "$FinalTotal is a new high score! Great job!"
-  } 
-}
-Write-Host " "
-Pause
+Show-EndScreen
