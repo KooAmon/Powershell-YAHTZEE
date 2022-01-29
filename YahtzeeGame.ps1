@@ -15,7 +15,46 @@
   Just run YahtzeeGame.ps1 and have fun :)
 #>
 
-#   Ascii dice function
+<#
+    .SYNOPSIS
+    Displays a set of Dice
+
+    .DESCRIPTION
+    Displays a set of ASCII dice based on inputs.
+    Can take in either a array of integers to display exactly what dice you want
+    or an integer to display that many random dice
+
+    .PARAMETER Random
+    How many Dice to create randomly
+
+    .PARAMETER NumberSet
+    An array of integers to display
+
+    .PARAMETER DieColor
+    Color to Display the Dice in
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+
+    .EXAMPLE
+    PS> Show-AsciiDice -Random 3
+     _____     _____     _____ 
+    |o   o|   |     |   | o   |
+    |  o  |   |  o  |   |  o  |
+    |o   o|   |     |   |   o |
+     -----     -----     -----  
+
+    .EXAMPLE
+    PS> Show-AsciiDice -NumberSet @(5, 1, 3)
+     _____     _____     _____ 
+    |o   o|   |     |   | o   |
+    |  o  |   |  o  |   |  o  |
+    |o   o|   |     |   |   o |
+     -----     -----     -----  
+#>
 function Show-AsciiDice {
     Param
     (
@@ -24,16 +63,17 @@ function Show-AsciiDice {
         [parameter()][ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Blue', 'Green', 'Cyan', 'Red', 'Magenta', 'Yellow', 'White')][String] $DieColor = 'White'
     )
 
-    if ($PsCmdlet.ParameterSetName -eq 'Random') {
-        $NumberSet = (1..$random | ForEach-Object { Get-Random -Minimum 1 -Maximum 7 })
-    }
+    #   If Random then add a number to Number Set $Random times
+    if ($PsCmdlet.ParameterSetName -eq 'Random') { $NumberSet = (1..$random | ForEach-Object { Get-Random -Minimum 1 -Maximum 7 }) }
 
-    $OutputTop = foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Top)$($Global:DiceSpacer)"}
-    $OutputTopMiddle = foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Top)$($Global:DiceSpacer)"}
-    $OutputMiddle =  foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Middle)$($Global:DiceSpacer)"}
-    $OutputBottomMiddle =  foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Bottom)$($Global:DiceSpacer)"}
-    $OutputBottom =  foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Bottom)$($Global:DiceSpacer)"}
+    #   Setup each slice of the dice to be displayed
+    $OutputTop =            foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Top)$($Global:DiceSpacer)"}
+    $OutputTopMiddle =      foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Top)$($Global:DiceSpacer)"}
+    $OutputMiddle =         foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Middle)$($Global:DiceSpacer)"}
+    $OutputBottomMiddle =   foreach ($Number in $Numberset) {Write-Output "$($Global:Dice.$($Number).Bottom)$($Global:DiceSpacer)"}
+    $OutputBottom =         foreach ($Number in $Numberset) {Write-Output "$($Global:DiceSlices.Bottom)$($Global:DiceSpacer)"}
 
+    #   Display each slice of the dice
     Write-Host -ForegroundColor $DieColor $OutputTop
     Write-Host -ForegroundColor $DieColor $OutputTopMiddle
     Write-Host -ForegroundColor $DieColor $OutputMiddle
@@ -89,7 +129,41 @@ Function Read-Choice {
     } 
 }
 
-#   Display ScoreCard
+<#
+    .SYNOPSIS
+    Displays the ScoreCard
+
+    .DESCRIPTION
+    Displays the current ScoreCard.
+    This is a wrapper for the outline of the ScoreCard.
+    It calls Show-ScoreCardSection for the 'Upper' and 'Lower'
+    sections.
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+
+    .EXAMPLE
+    PS> Show-ScoreCard
+    ~~~~Score Card~~~~
+    Ones    : 0
+    Twos    : 0
+    Threes  : 0
+    Fours   : 0
+    Fives   : 0
+    Sixes   : 0
+    ~~~~~~~~~~~~~~~~~~
+    ThreeofaKind    : 0
+    FourofaKind     : 0
+    FullHouse       : 0
+    SmStraight      : 0
+    LgStraight      : 0
+    _Yahtzee_       : 0
+    _Chance_        : 0
+    ~~~~~~~~~~~~~~~~~~
+#>
 Function Show-ScoreCard{
     Clear-Host
 
@@ -102,6 +176,33 @@ Function Show-ScoreCard{
     Write-Host $Global:SpacerScoreCard
 }
 
+<#
+    .SYNOPSIS
+    Displays a section of the ScoreCard
+
+    .DESCRIPTION
+    Displays a section of the ScoreCard.
+    References the Type property of the ScoreCardObject
+    to determine what is displayed
+
+    .PARAMETER Type
+    What section of the ScoreCardObject to display
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+
+    .EXAMPLE
+    PS> Show-ScoreCardSection -Type 'Upper'
+    Ones    : 0
+    Twos    : 0
+    Threes  : 0
+    Fours   : 0
+    Fives   : 0
+    Sixes   : 0
+#>
 Function Show-ScoreCardSection{
     param (
         [Parameter(Mandatory)][ValidateSet('Upper', 'Lower')][string] $Type
@@ -120,10 +221,28 @@ Function Show-ScoreCardSection{
     }
 }
 
-#   Dice Roll Function
+<#
+    .SYNOPSIS
+    Rolls dice
+
+    .DESCRIPTION
+    Rolls an amount of dice based Count parameter
+
+    .PARAMETER Count
+    Number of dice to roll
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+
+#>
 function Invoke-DiceRoll {
-    Param([int]$numberofdice)
-    $Global:Dicearray = 1..$($numberofdice) 
+    param (
+        [Parameter(Mandatory)][int] $Count
+    )
+    $Global:Dicearray = 1..$($Count)
     foreach ($number in $Global:Dicearray) { 1..6 | Get-Random }
 }
 
@@ -141,7 +260,7 @@ function Invoke-YahtzeeTurn {
         $Die | Add-Member -MemberType NoteProperty -Name 'DicePosition' -Value ($i) -Force
         #$Die | Add-Member -MemberType NoteProperty -name "DicePosition" -Value ([char](64 + $i)) -Force  #Select die with letter instead of number
         $Die | Add-Member -MemberType NoteProperty -Name 'Held' -Value ' ' -Force
-        $Die | Add-Member -MemberType NoteProperty -Name 'Value' -Value (Invoke-DiceRoll -numberofdice 1) -Force
+        $Die | Add-Member -MemberType NoteProperty -Name 'Value' -Value (Invoke-DiceRoll -Count 1) -Force
     }
 
     Show-ScoreCard
@@ -171,7 +290,7 @@ function Invoke-YahtzeeTurn {
       
             #Reroll non-held die
             if ($($Die.Held) -notlike 'Hold') {
-                $Die.Value = Invoke-DiceRoll -numberofdice 1
+                $Die.Value = Invoke-DiceRoll -Count 1
                 $Die.Held = ' '
                 $Die.Value
             }
@@ -269,7 +388,47 @@ function Invoke-YahtzeeTurn {
     return $SelectedScore
 }
 
-#   End Screen
+<#
+    .SYNOPSIS
+    Displays the end screen
+    .DESCRIPTION
+    Displays the end screen with tally of all scores
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+
+    .EXAMPLE
+    PS> Show-EndScreen
+    ~~~~Score Card~~~~
+    Ones    : 0
+    Twos    : 2
+    Threes  : 9
+    Fours   : 4
+    Fives   : 5
+    Sixes   : 6
+    ~~~~~~~~~~~~~~~~~~
+    ThreeofaKind    : 20
+    FourofaKind     : 0
+    FullHouse       : 0
+    SmStraight      : 0
+    LgStraight      : 0
+    _Yahtzee_       : 0
+    _Chance_        : 20
+    ~~~~~~~~~~~~~~~~~~
+    Top Total    : 26
+    Top Bonus    : 0
+    Bottom Total : 40
+    ~~~~~~~~~~~~~~~~~~
+    Total Score  : 66
+    ~~~~~~~~~~~~~~~~~~
+    Highest Score: 313
+    Average Score: 53.4444444444444
+    Lowest Score: 0
+    Games Played: 9
+#>
 Function Show-EndScreen{
     Show-ScoreCard
 
@@ -317,7 +476,18 @@ Function Show-EndScreen{
     Pause
 }
 
-#   Setup Global Vars
+<#
+    .SYNOPSIS
+    Setup method for creating all Global variables
+    .DESCRIPTION
+    Setup method for creating all Global variables
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+#>
 Function New-Globals{
     $Global:Title = '
     \ /                  
@@ -455,13 +625,26 @@ Function New-Globals{
     $Global:ScoresPath = "$env:APPDATA\PowershellYahtzeeHighScore.txt"
 }
 
-#   Create file to store scores
+<#
+    .SYNOPSIS
+    Setup method for creating a score file
+    .DESCRIPTION
+    Setup method for creating a score file to track
+    games and outcomes
+
+    .INPUTS
+    Not Implemented
+
+    .OUTPUTS
+    Not Implemented
+#>
 Function New-ScoreFile{
     if (($Global:ScoreBool -eq $true) -and (!$(Test-Path $Global:ScoresPath))) {
         Set-Content -Path $Global:ScoresPath -Value '' -Force
     }
 }
 
+#   Main Game Entry point
 New-Globals
 New-ScoreFile
 
